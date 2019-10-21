@@ -1,15 +1,4 @@
 /*************************************************** 
-  This is an example for the Adafruit Thermocouple Sensor w/MAX31855K
-
-  Designed specifically to work with the Adafruit Thermocouple Sensor
-  ----> https://www.adafruit.com/products/269
-
-  These displays use SPI to communicate, 3 pins are required to  
-  interface
-  Adafruit invests time and resources providing this open source code, 
-  please support Adafruit and open-source hardware by purchasing 
-  products from Adafruit!
-
   Written by Limor Fried/Ladyada for Adafruit Industries.  
   BSD license, all text above must be included in any redistribution
  ****************************************************/
@@ -18,54 +7,47 @@
 #include "Adafruit_MAX31855.h"
 #include <MsTimer2.h>
 
-
-// Default connection is using software SPI, but comment and uncomment one of
-// the two examples below to switch between software SPI and hardware SPI:
-
-// Example creating a thermocouple instance with software SPI on any three
-// digital IO pins.
 #define MAXDO   3
 #define MAXCS   4
 #define MAXCLK  5
 
-int fan = 12;//ファンのピン番号
-int heater = 11;//ヒーターのピン番号
-
-// initialize the Thermocouple
+#define fan     12        //ファンのピン番号
+#define heater  11        //ヒーターのピン番号
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 
-// Example creating a thermocouple instance with hardware SPI
-// on a given CS pin.
-//#define MAXCS   10
-//Adafruit_MAX31855 thermocouple(MAXCS);
-boolean flag_start = LOW;
-
-int power_freq = 50;//交流電源の周波数
-int control_len = 50;//制御周期の長さ
+boolean flag_start = LOW; //リフローのスタート
+int power_freq = 50;      //交流電源の周波数
+int control_len = 50;     //制御周期の長さ
 double T_s = (1/double(power_freq))*double(control_len);//計測周期
-int flashcounter = 0;//フラッシュ関数の呼び出し回数
-
-boolean out_h = HIGH;
-double ref_c=180;//温度リファレンス
-double err_c;//目標値との差
-double Kp=10;//比例ゲイン
-double Kd=70;//微分ゲイン
-double Ki=0;//積分ゲイン
-double power_duty = 0;//Duty比
-int power_count;//Duty比から計算したHIGHの回数
-double err_c_d1 = 25;//１つ前の目標値との差,d=delay
-double err_c_d2 = 25;//2つ前の目標値との差,d=delay
-double power_duty_d1 = 0;//１つ前のduty比
+int flashcounter = 0;     //フラッシュ関数の呼び出し回数
+double err_c;             //目標値との差
+double power_duty = 0;    //Duty比
+int power_count;          //Duty比から計算したHIGHの回数
+double err_c_d1 = 25;     //１つ前の目標値との差,d=delay
+double err_c_d2 = 25;     //2つ前の目標値との差,d=delay
+double power_duty_d1 = 0; //１つ前のduty比
 double delta_power_duty;
-double c_d1 = 0;//１つ前の温度
-
+double c_d1 = 0;          //１つ前の温度
 double time_s = 0;
+
+/////////////////////////////////////////
+// PID制御
+double Kp=10;             //比例ゲイン
+double Kd=70;             //微分ゲイン
+double Ki=0;              //積分ゲイン
+
+/////////////////////////////////////////
+// 温度設定
+#define pre_temp 150      //予熱温度．鉛入りだと150度くらい
+#define peak_temp 230     //本加熱．鉛入りだと(数度高めに)230度くらい
+double ref_c=pre_temp;    //温度リファレンス初期値（余熱温度と等しくすること！！）
+/////////////////////////////////////////
 
 void flash(){
   if(time_s < 180){
-    ref_c=180;
+    ref_c=pre_temp;
   }else if(time_s >= 180 && time_s < 250){
-    ref_c=250;
+    ref_c=peak_temp;
   }else if(time_s >= 250){
     ref_c=0;
     digitalWrite(heater,LOW);
