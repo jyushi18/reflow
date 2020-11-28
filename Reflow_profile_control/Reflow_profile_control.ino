@@ -38,20 +38,24 @@ double Ki=0;              //積分ゲイン
 
 /////////////////////////////////////////
 // 温度設定
-#define pre_temp 150      //予熱温度．鉛入りだと150度くらい
-#define peak_temp 230     //本加熱．鉛入りだと(数度高めに)230度くらい
+#define pre_temp    150     //予熱温度．鉛入りだと150度くらい
+#define peak_temp   230     //本加熱．鉛入りだと(数度高めに)230度くらい
+#define PreHeatTime 180     //予熱の時間
+#define HeatEndTime 250     //本加熱の終了時間
 double ref_c=pre_temp;    //温度リファレンス初期値（余熱温度と等しくすること！！）
 /////////////////////////////////////////
 
 void flash(){
-  if(time_s < 180){
+  if(time_s < PreHeatTime){
     ref_c=pre_temp;
-  }else if(time_s >= 180 && time_s < 250){
+  }else if(time_s >= PreHeatTime && time_s < HeatEndTime){
     ref_c=peak_temp;
-  }else if(time_s >= 250){
+  }else if(time_s >= HeatEndTime){
     ref_c=0;
     digitalWrite(heater,LOW);
+    Serial.println("Finish! You should door open!");
   }
+  
   if(flashcounter%control_len == 0){
     double c = thermocouple.readCelsius();
     if(isnan(c)){
@@ -80,20 +84,20 @@ void flash(){
     //Serial.println(power_count);
     digitalWrite(heater,HIGH);
     power_count--;
-    }else{
-      digitalWrite(heater,LOW);
-    }
-    flashcounter++;
-    time_s = double(flashcounter)*(1/double(power_freq));
-  
+  }else{
+    digitalWrite(heater,LOW);
+  }
+  flashcounter++;
+  time_s = double(flashcounter)*(1/double(power_freq));
 }
+
 void setup() {
   Serial.begin(9600);
  
   while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc
   delay(500);
 
-  MsTimer2::set(20, flash); // 500ms period
+  MsTimer2::set(20, flash); // 20ms period
   
   
   //Serial.println("MAX31855 test");
