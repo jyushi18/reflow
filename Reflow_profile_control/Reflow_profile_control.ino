@@ -46,33 +46,44 @@ double ref_c=pre_temp;    //温度リファレンス初期値（余熱温度と�
 /////////////////////////////////////////
 
 void flash(){
+  /////////////////////////////
+  // 目標温度設定
+  /////////////////////////////
   if(time_s < PreHeatTime){
     ref_c=pre_temp;
   }else if(time_s >= PreHeatTime && time_s < HeatEndTime){
+    // 本加熱の開始を通知
+    if(ref_c != peak_temp){
+      Serial.println("Main heating started!");
+    }
     ref_c=peak_temp;
   }else if(time_s >= HeatEndTime){
+    // 終了時に扉を開ける警告
+    if(ref_c != 0){
+      Serial.println("Finish! You should door open!");
+    }
     ref_c=0;
     digitalWrite(heater,LOW);
-    Serial.println("Finish! You should door open!");
   }
-  
+
+  /////////////////////////////
+  // 制御値の計算
+  /////////////////////////////
   if(flashcounter%control_len == 0){
     double c = thermocouple.readCelsius();
     if(isnan(c)){
       c = c_d1;
     }
     Serial.print(time_s);
-    Serial.print(",");
+    Serial.print("\t,");
     Serial.print(c);
-    Serial.print(",");
-    //Serial.println("1");
+    Serial.print("\t,");
     err_c = ref_c - c;
     delta_power_duty = (Kp*(err_c - err_c_d1) + Ki*err_c*T_s + (err_c-2*err_c_d1+err_c_d2)*Kd/T_s);//速度型PID制御
     power_duty = power_duty_d1 + delta_power_duty;
     power_duty_d1 = power_duty;
-    Serial.print(power_duty);
-    Serial.print(",");
-    //power_duty = (err_c*Kp - (err_c-err_c_d1)*Kd);
+    //Serial.print(power_duty);
+    //Serial.print("\t,");
     power_duty = min(100.0,max(0,power_duty))/100.0;
     power_count = int(power_duty*control_len);
     Serial.println(power_count);
@@ -80,6 +91,10 @@ void flash(){
     err_c_d1 = err_c;
     c_d1 = c;
   }
+
+  /////////////////////////////
+  // 制御値の出力
+  /////////////////////////////
   if(power_count > 0){
     //Serial.println(power_count);
     digitalWrite(heater,HIGH);
